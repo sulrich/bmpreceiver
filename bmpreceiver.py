@@ -623,7 +623,7 @@ def main(argv):
   #
   try:
     opts, args = getopt.getopt(argv, 
-                               "dv4p:f:4dv", 
+                               "dv4p:f:", 
                                ["debug", 
                                 "verbose",
                                 "rfc4893",
