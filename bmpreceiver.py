@@ -34,7 +34,8 @@ PORT = 0
 
 # global variables
 #
-RecordSession = 0;
+RecordSession = 0
+DebugFlag = 0
 
 # function to collect a BMP header
 #
@@ -537,6 +538,7 @@ def collect_bytes(s, l):
 # parse BGP nlri information
 #
 def parse_bgp_nlri(update, start, end, afi, verbose = 0):
+  global DebugFlag
   
   nlri_text = []
   offset2 = start
@@ -556,9 +558,9 @@ def parse_bgp_nlri(update, start, end, afi, verbose = 0):
 
       # maybe override afi
       #
-      if (need_bytes > 4) and (afi == BGP.AF_IP): 
-        print "WARNING: overriding AFI due to bytes needed for prefix length"
-        afi = BGP.AF_IP6
+#      if (need_bytes > 4) and (afi == BGP.AF_IP): 
+#        print "WARNING: overriding AFI due to bytes needed for prefix length"
+#        afi = BGP.AF_IP6
 
       # get a buffer of correct size for address family
       #
@@ -585,7 +587,8 @@ def parse_bgp_nlri(update, start, end, afi, verbose = 0):
 
   except:
     nlri_text.append("parse error at %d" % offset2)
-    raise
+    if DebugFlag:
+      raise
 
   return nlri_text
   
@@ -614,22 +617,23 @@ Options:
 #
 def main(argv):
   global RecordSession
+  global DebugFlag
 
   # command-line arguments
   #
   try:
     opts, args = getopt.getopt(argv, 
-                               "p:f:4dv", 
-                               ["port=", 
-                                "file=", 
-                                "rfc4893"
-                                "debug", 
-                                "verbose"])
+                               "dv4p:f:4dv", 
+                               ["debug", 
+                                "verbose",
+                                "rfc4893",
+                                "port=", 
+                                "file="])
   except getopt.GetoptError:
     usage()
     sys.exit(2)
   port = PORT
-  debug_flag = 0
+
   rfc4893_updates = 0;
   verbose_flag = 0
   record_file = '';
@@ -641,7 +645,7 @@ def main(argv):
     elif o in ('-4', '--rfc4893'):
       rfc4893_updates = 1
     elif o in ('-d', '--debug'):
-      debug_flag = 1
+      DebugFlag += 1
     elif o in ('-v', '--verbose'):
       verbose_flag = 1
     else:
