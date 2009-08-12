@@ -1,3 +1,4 @@
+#!/usr/bin/python2.5
 #
 # Copyright 2009 Google Inc.
 # All Rights Reserved.
@@ -14,13 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__author__ = "sstuart@google.com (Stephen Stuart)"
+"""Border Gateway Protocol - various constants and functions."""
 
-"""
-BGP (Border Gateway Protocol)
-
-Various constants associated with the protocol
-"""
+__author__ = 'sstuart@google.com (Stephen Stuart)'
 __version__ = '4.0'
 
 HEADER_LEN = 19
@@ -56,13 +53,13 @@ ATTR_TYPE_MP_UNREACH_NLRI = 15
 ATTR_TYPE_AS4_PATH = 17
 ATTR_TYPE_AS4_AGGREGATOR = 18
 
-ATTR_TYPE_STR = {ATTR_TYPE_ORIGIN: 'ORIGIN', 
-                 ATTR_TYPE_AS_PATH: 'AS_PATH', 
-                 ATTR_TYPE_NEXT_HOP: 'NEXT_HOP', 
-                 ATTR_TYPE_MULTI_EXIT_DISC: 'MULTI_EXIT_DISC', 
-                 ATTR_TYPE_LOCAL_PREF: 'LOCAL_PREF', 
-                 ATTR_TYPE_ATOMIC_AGGREGATE: 'ATOMIC_AGGREGATE', 
-                 ATTR_TYPE_AGGEGATOR: 'AGGREGATOR', 
+ATTR_TYPE_STR = {ATTR_TYPE_ORIGIN: 'ORIGIN',
+                 ATTR_TYPE_AS_PATH: 'AS_PATH',
+                 ATTR_TYPE_NEXT_HOP: 'NEXT_HOP',
+                 ATTR_TYPE_MULTI_EXIT_DISC: 'MULTI_EXIT_DISC',
+                 ATTR_TYPE_LOCAL_PREF: 'LOCAL_PREF',
+                 ATTR_TYPE_ATOMIC_AGGREGATE: 'ATOMIC_AGGREGATE',
+                 ATTR_TYPE_AGGEGATOR: 'AGGREGATOR',
                  ATTR_TYPE_COMMUNITIES: 'COMMUNITIES',
                  ATTR_TYPE_ORIGINATOR_ID: 'ORIGINATOR_ID',
                  ATTR_TYPE_CLUSTER_LIST: 'CLUSTER_LIST',
@@ -72,8 +69,7 @@ ATTR_TYPE_STR = {ATTR_TYPE_ORIGIN: 'ORIGIN',
                  ATTR_TYPE_MP_REACH_NLRI: 'MP_REACH_NLRI',
                  ATTR_TYPE_MP_UNREACH_NLRI: 'MP_UNREACH_NLRI',
                  ATTR_TYPE_AS4_PATH: 'AS4_PATH',
-                 ATTR_TYPE_AS4_AGGREGATOR: 'AS4_AGGREGATOR',
-                 }
+                 ATTR_TYPE_AS4_AGGREGATOR: 'AS4_AGGREGATOR'}
 
 # attribute flag values
 #
@@ -87,8 +83,8 @@ ATTR_FLAG_EXT_LEN = 16
 ORIGIN_IGP = 0
 ORIGIN_EGP = 1
 ORIGIN_INCOMPLETE = 2
-ORIGIN_STR = {ORIGIN_IGP: 'IGP', 
-              ORIGIN_EGP: 'EGP', 
+ORIGIN_STR = {ORIGIN_IGP: 'IGP',
+              ORIGIN_EGP: 'EGP',
               ORIGIN_INCOMPLETE: 'incomplete'}
 
 # AS_PATH path segment type codes
@@ -97,13 +93,13 @@ AS_SET = 1
 AS_SEQUENCE = 2
 AS_CONFED_SET = 3
 AS_CONFED_SEQUENCE = 4
-AS_PATH_SEG_STR = {AS_SET: 'set', 
-                   AS_SEQUENCE: 'sequence', 
-                   AS_CONFED_SET: 'confed_set', 
+AS_PATH_SEG_STR = {AS_SET: 'set',
+                   AS_SEQUENCE: 'sequence',
+                   AS_CONFED_SET: 'confed_set',
                    AS_CONFED_SEQUENCE: 'confed_seq'}
 AS_PATH_SEG_FORMAT = {AS_SET: '{ %s }',
-                      AS_SEQUENCE: '%s', 
-                      AS_CONFED_SET: '( %s )', 
+                      AS_SEQUENCE: '%s',
+                      AS_CONFED_SET: '( %s )',
                       AS_CONFED_SEQUENCE: '( %s )'}
 
 # NOTIFICATION codes
@@ -132,40 +128,53 @@ WELL_KNOWN_COMM = {0xFFFFFF01: 'NO_EXPORT',
 AF_IP = 1
 AF_IP6 = 2
 
+
 # function to determine the number of bytes necessary to represent a
 # prefix of length 'len' per RFC4271
 #
-def bytes_for_prefix(len):
-  if (len <= 8):
-    return 1
-  elif (len <= 16):
-    return 2
-  elif (len <= 24):
-    return 3
-  elif (len <= 32):
-    return 4
-  elif (len <= 40):
-    return 5
-  elif (len <= 48):
-    return 6
-  elif (len <= 56):
-    return 7
-  elif (len <= 64):
-    return 8
-  elif (len <= 72):
-    return 9
-  elif (len <= 80):
-    return 10
-  elif (len <= 88):
-    return 11
-  elif (len <= 96):
-    return 12
-  elif (len <= 104):
-    return 13
-  elif (len <= 112):
-    return 14
-  elif (len <= 120):
-    return 15
-  elif (len <= 128):
-    return 16
-  assert(len <= 128)
+def BytesForPrefix(prefix_len):
+  """Determine the number of octets required to hold a prefix of length.
+
+  Args:
+    prefix_len: length of the prefix in bits.
+
+  Returns:
+    An int indicating how many octets are used to hold the prefix.
+  """
+
+  retval = 0
+  if prefix_len <= 8:
+    retval = 1
+  elif prefix_len <= 16:
+    retval = 2
+  elif prefix_len <= 24:
+    retval = 3
+  elif prefix_len <= 32:
+    retval = 4
+  elif prefix_len <= 40:
+    retval = 5
+  elif prefix_len <= 48:
+    retval = 6
+  elif prefix_len <= 56:
+    retval = 7
+  elif prefix_len <= 64:
+    retval = 8
+  elif prefix_len <= 72:
+    retval = 9
+  elif prefix_len <= 80:
+    retval = 10
+  elif prefix_len <= 88:
+    retval = 11
+  elif prefix_len <= 96:
+    retval = 12
+  elif prefix_len <= 104:
+    retval = 13
+  elif prefix_len <= 112:
+    retval = 14
+  elif prefix_len <= 120:
+    retval = 15
+  elif prefix_len <= 128:
+    retval = 16
+  else:
+    assert prefix_len <= 128
+  return retval
