@@ -54,6 +54,7 @@ def CollectBmpHeader(s, verbose=0):
     an int indicating the type of message that follows the header.
   """
 
+  indent = INDENT_CHAR * INDENT_COUNT
   print_msg = []
 
   # read the fixed-length header from the socket
@@ -64,10 +65,10 @@ def CollectBmpHeader(s, verbose=0):
   #
   version, msg_type, peer_type, peer_flags = struct.unpack(">BBBB",
                                                            header[0:4])
-  print_msg.append("BMP version " + str(version))
-  print_msg.append(" msg_type " + BMP.MSG_TYPE_STR[msg_type])
+  print_msg.append("BMP version %d type %s " % (version,
+                                                BMP.MSG_TYPE_STR[msg_type]))
   if verbose:
-    print_msg.append(" peer_type " + BMP.PEER_TYPE_STR[peer_type])
+    print_msg.append(" peer_type %s" % BMP.PEER_TYPE_STR[peer_type])
     print_msg.append(" peer_flags 0x%x\n" % peer_flags)
   else:
     print_msg.append("\n")
@@ -76,12 +77,12 @@ def CollectBmpHeader(s, verbose=0):
   else:
     peer_address = socket.inet_ntop(socket.AF_INET, header[24:28])
   if verbose:
-    print_msg.append("  peer_address " + peer_address)
+    print_msg.append("%speer_address %s" % (indent, peer_address))
     peer_as, time_sec = struct.unpack(">LxxxxL",
                                       header[28:40])
-    print_msg.append(" as " + str(peer_as))
-    print_msg.append(" router_id " + socket.inet_ntoa(header[32:36]) + "\n")
-    print_msg.append("  time " + time.ctime(time_sec) + "\n")
+    print_msg.append(" as %d" % peer_as)
+    print_msg.append(" router_id %s\n" % socket.inet_ntoa(header[32:36]))
+    print_msg.append("%stime %s\n" % (indent, time.ctime(time_sec)))
 
   # print the message
   #
@@ -113,15 +114,15 @@ def CollectBmpPeerDown(s, verbose=0):
 
   reason_code = CollectBytes(s, 1)
   if reason_code[0] == 1:
-    print indent + "Local system closed session, notification sent"
+    print "%sLocal system closed session, notification sent" % indent
     CollectBgpNotification(s, verbose)
   elif reason_code[0] == 2:
-    print indent + "Local system closed session, no notification"
+    print "%sLocal system closed session, no notification" % indent
   elif reason_code[0] == 3:
-    print indent + "Remote system closed session, notification sent"
+    print "%sRemote system closed session, notification sent" % indent
     CollectBgpNotification(s, verbose)
   elif reason_code[0] == 4:
-    print indent + "Remote system closed session, no notification"
+    print "%sRemote system closed session, no notification" % indent
   else:
     assert False, "unknown Peer Down reason code"
 
@@ -146,7 +147,7 @@ def CollectBmpSrMsg(s, verbose=0):
   #
   stats_count_buf = CollectBytes(s, 4)
   stats_count = struct.unpack(">L", stats_count_buf)[0]
-  print_msg.append(indent + str(stats_count) + " TLVs present\n")
+  print_msg.append("%s%d TLVs present\n" % (indent, stats_count))
 
   # read all the TLVs
   #
@@ -158,8 +159,10 @@ def CollectBmpSrMsg(s, verbose=0):
       assert stat_len == 4
       stat_val = struct.unpack(">L", stat_data_buf)[0]
       if verbose:
-        print_msg.append(indent + indent + str(stat_val) + " ")
-        print_msg.append(BMP.SR_TYPE_STR[stat_type] + "\n")
+        print_msg.append("%s%s%d %s\n" % (indent,
+                                          indent,
+                                          stat_val,
+                                          BMP.SR_TYPE_STR[stat_type]))
     stats_count -= 1
 
   # print the message
@@ -199,7 +202,7 @@ def CollectBgpHeader(s, verbose=0):
     # unpack the length and type
     #
     length, msg_type = struct.unpack(">HB", header[16:19])
-    print indent + "BGP " + BGP.MSG_TYPE_STR[msg_type],
+    print "%sBGP %s" % (indent, BGP.MSG_TYPE_STR[msg_type]),
     if verbose:
       print "length %d" % (length - BGP.HEADER_LEN)
     else:
@@ -243,13 +246,14 @@ def CollectBgpNotification(s, verbose=0):
   #
   notification = CollectBytes(s, length)
   code, subcode = struct.unpack(">BB", notification[0:2])
-  print_msg.append(indent + "NOTIFICATION code " + str(code) +
-                   " subcode " + str(subcode) + "\n")
+  print_msg.append("%sNOTIFICATION code %d subcode %d\n" % (indent,
+                                                            code,
+                                                            subcode))
 
   # if there are data bytes, dump them in hex
   #
   if (length > 2) and verbose:
-    print_msg.append(indent + "NOTIFICATION data ")
+    print_msg.append("%sNOTIFICATION data " % indent)
     for x in range(3, length - 1):
       print_msg.append(" 0x%x" % notification[x])
     print_msg.append("\n")
@@ -297,8 +301,9 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
   #
   withdrawn_route_len = struct.unpack_from(">H", update[0:2], offset)[0]
   if verbose:
-    print(indent + "withdrawn at " + str(offset) +
-          " length " + str(withdrawn_route_len))
+    print("%swithdrawn at %d length %d" % (indent,
+                                           offset,
+                                           withdrawn_route_len))
   offset += 2
   if withdrawn_route_len:
     withdrawn_text = ParseBgpNlri(update,
@@ -307,9 +312,9 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
                                   BGP.AF_IP,
                                   verbose)
     if withdrawn_text:
-      prepend_str = indent + "withdraw "
-      sep = "\n" + prepend_str
-      print_msg.append(prepend_str + sep.join(withdrawn_text) + "\n")
+      prepend_str = "%swithdraw " % indent
+      sep = "\n%s" % prepend_str
+      print_msg.append("%s%s\n" % (prepend_str, sep.join(withdrawn_text)))
 
     offset += withdrawn_route_len
 
@@ -317,21 +322,20 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
   #
   path_attr_len = struct.unpack_from(">H", update, offset)[0]
   if verbose:
-    print(indent + "path attributes at " + str(offset) +
-          " length " + str(path_attr_len))
+    print("%spath attributes at %d length %d" % (indent,
+                                                 offset,
+                                                 path_attr_len))
   offset += 2
   path_attr_end = offset + path_attr_len
   while offset < path_attr_end:
 
     # get flags and type code
     #
-    attr_flags, attr_type_code = struct.unpack_from(">BB", update, offset)
+    attr_flags, attr_type = struct.unpack_from(">BB", update, offset)
     if verbose:
-      print_msg.append(indent +
-                       "path attr " +
-                       BGP.ATTR_TYPE_STR[attr_type_code] +
-                       " at " +
-                       str(offset))
+      print_msg.append("%spath attr %s at %d" % (indent,
+                                                 BGP.ATTR_TYPE_STR[attr_type],
+                                                 offset))
       print_msg.append(" flags 0x%x (" % attr_flags)
       attr_list = []
       if (attr_flags & BGP.ATTR_FLAG_OPTIONAL) == BGP.ATTR_FLAG_OPTIONAL:
@@ -355,20 +359,20 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
       offset += 1
 
     if verbose:
-      print_msg.append(")\n")
+      print_msg.append(") len %d\n" % attr_len)
 
     # origin
     #
-    if attr_type_code == BGP.ATTR_TYPE_ORIGIN:
+    if attr_type == BGP.ATTR_TYPE_ORIGIN:
       assert attr_len == 1, "attr_len wrong"
-      print_msg.append(indent + BGP.ATTR_TYPE_STR[attr_type_code] + " ")
-      print_msg.append(BGP.ORIGIN_STR[update[offset]])
-      print_msg.append("\n")
+      print_msg.append("%s%s %s\n" % (indent,
+                                      BGP.ATTR_TYPE_STR[attr_type],
+                                      BGP.ORIGIN_STR[update[offset]]))
 
     # AS path
     #
-    elif attr_type_code == BGP.ATTR_TYPE_AS_PATH:
-      print_msg.append(indent + BGP.ATTR_TYPE_STR[attr_type_code] + " ")
+    elif attr_type == BGP.ATTR_TYPE_AS_PATH:
+      print_msg.append("%s%s " % (indent, BGP.ATTR_TYPE_STR[attr_type]))
 
       # make a local copy of offset
       #
@@ -403,22 +407,23 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
 
     # next hop
     #
-    elif attr_type_code == BGP.ATTR_TYPE_NEXT_HOP:
+    elif attr_type == BGP.ATTR_TYPE_NEXT_HOP:
       next_hop = update[offset:offset + 4]
-      print_msg.append(indent + BGP.ATTR_TYPE_STR[attr_type_code] + " ")
-      print_msg.append(socket.inet_ntoa(next_hop) + "\n")
+      print_msg.append("%s%s %s\n" % (indent,
+                                      BGP.ATTR_TYPE_STR[attr_type],
+                                      socket.inet_ntoa(next_hop)))
 
     # MED
     #
-    elif attr_type_code == BGP.ATTR_TYPE_MULTI_EXIT_DISC:
-      print_msg.append(indent + BGP.ATTR_TYPE_STR[attr_type_code] + " ")
+    elif attr_type == BGP.ATTR_TYPE_MULTI_EXIT_DISC:
+      print_msg.append("%s%s " % (indent, BGP.ATTR_TYPE_STR[attr_type]))
       attr_val = struct.unpack_from(">L", update, offset)[0]
-      print_msg.append(str(attr_val) + "\n")
+      print_msg.append("%d\n" % attr_val)
 
     # communities
     #
-    elif attr_type_code == BGP.ATTR_TYPE_COMMUNITIES:
-      print_msg.append(indent + BGP.ATTR_TYPE_STR[attr_type_code] + " ")
+    elif attr_type == BGP.ATTR_TYPE_COMMUNITIES:
+      print_msg.append("%s%s " % (indent, BGP.ATTR_TYPE_STR[attr_type]))
 
       # make a local copy of offset
       #
@@ -437,16 +442,14 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
           comm_val.append(BGP.WELL_KNOWN_COMM[x])
         else:
           high, low = struct.unpack_from(">HH", update, offset2)
-          comm_val.append(str(high) + ":" + str(low))
+          comm_val.append("%d:%d" % (high, low))
         offset2 += 4
-      print_msg.append(" ".join(comm_val) + "\n")
+      print_msg.append("%s\n" % " ".join(comm_val))
 
-    # mp_reach
+    #  mp_reach
     #
-    elif attr_type_code == BGP.ATTR_TYPE_MP_REACH_NLRI:
-      print_msg.append(indent + BGP.ATTR_TYPE_STR[attr_type_code] + "\n")
-      print_msg.append(indent + "length " + str(attr_len) +
-                       " at " + str(offset) + "\n")
+    elif attr_type == BGP.ATTR_TYPE_MP_REACH_NLRI:
+      print_msg.append("%s%s\n" % (indent, BGP.ATTR_TYPE_STR[attr_type]))
 
       offset2 = offset
 
@@ -457,25 +460,25 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
 
       # next hop
       #
-      socket_afi = 0
+      unused_socket_afi = 0
       if afi == BGP.AF_IP:
-        socket_afi = socket.AF_INET
+        unused_socket_afi = socket.AF_INET
         next_hop = socket.inet_ntop(socket.AF_INET, update[offset2:offset2+4])
       elif afi == BGP.AF_IP6:
-        socket_afi = socket.AF_INET6
+        unused_socket_afi = socket.AF_INET6
         next_hop = socket.inet_ntop(socket.AF_INET6,
                                     update[offset2:offset2+16])
       else:
         next_hop = "unknown for afi %d" % afi
-      print_msg.append(indent + "NEXT_HOP " + next_hop + "\n")
+      print_msg.append("%sNEXT_HOP %s\n" % (indent, next_hop))
       if safi == 1:
-        print_msg.append(indent + "AFI %d SAFI unicast\n" % afi)
+        print_msg.append("%sAFI %d SAFI unicast\n" % (indent, afi))
       elif safi == 2:
-        print_msg.append(indent + "AFI %d SAFI multicast\n" % afi)
+        print_msg.append("%sAFI %d SAFI multicast\n" % (indent, afi))
       elif safi == 3:
-        print_msg.append(indent + "AFI %d SAFI unicast+multicast\n" % afi)
+        print_msg.append("%sAFI %d SAFI unicast+multicast\n" % (indent, afi))
       else:
-        print_msg.append(indent + "AFI %d SAFI %d\n" % afi, safi)
+        print_msg.append("%sAFI %d SAFI %d\n" % (indent, afi, safi))
 
       offset2 += nhl
 
@@ -503,35 +506,29 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
           snpa_dump.append("0x%x" % struct.unpack_from(">B",
                                                        update,
                                                        offset2 + y))
-        print_msg.append(indent + "SNPA " + str(x) + " " +
-                         "".join(snpa_dump))
+        print_msg.append("%sSNPA %d %s" % (indent, x, "".join(snpa_dump)))
         offset2 += snpa_len_octets
 
       # next section is nlri information, parse and add to print_msg
       #
       if verbose:
-        print_msg.append(indent +
-                         "NLRI portion of " +
-                         BGP.ATTR_TYPE_STR[attr_type_code] +
-                         " at " +
-                         str(offset2) +
-                         "\n")
+        print_msg.append("%sNLRI portion of %s at %d\n" %
+                         (indent, BGP.ATTR_TYPE_STR[attr_type], offset2))
       nlri_text = ParseBgpNlri(update,
                                offset2,
                                offset + attr_len,
                                afi,
                                verbose)
       if nlri_text:
-        prepend_str = indent + "mp_nlri "
-        sep = "\n" + prepend_str
-        print_msg.append(prepend_str + sep.join(nlri_text) + "\n")
+        prepend_str = "%smp_nlri " % indent
+        sep = "\n%s" % prepend_str
+        print_msg.append("%s%s\n" % (prepend_str, sep.join(nlri_text)))
 
     # mp_unreach
     #
-    elif attr_type_code == BGP.ATTR_TYPE_MP_UNREACH_NLRI:
-      print_msg.append(indent + BGP.ATTR_TYPE_STR[attr_type_code] + "\n")
-      print_msg.append(indent + "length " + str(attr_len) + " at " +
-                       str(offset) + "\n")
+    elif attr_type == BGP.ATTR_TYPE_MP_UNREACH_NLRI:
+      print_msg.append("%s%s\n" % (indent, BGP.ATTR_TYPE_STR[attr_type]))
+      print_msg.append("%slength %d at %d\n" % (indent, attr_len, offset))
 
       offset2 = offset
 
@@ -542,21 +539,21 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
 
       # figure out what to say
       #
-      socket_afi = 0
+      unused_socket_afi = 0
       next_hop = ""
       if afi == BGP.AF_IP:
-        socket_afi = socket.AF_INET
-        print_msg.append(indent + "mp_unreach_nlri for %d" % socket_afi)
+        unused_socket_afi = socket.AF_INET
+        print_msg.append("%smp_unreach_nlri for %d" % (indent, afi))
       elif afi == BGP.AF_IP6:
-        socket_afi = socket.AF_INET6
-        print_msg.append(indent + "mp_unreach_nlri for %d" % socket_afi)
+        unused_socket_afi = socket.AF_INET6
+        print_msg.append("%smp_unreach_nlri for %d" % (indent, afi))
       else:
-        print_msg.append(indent + "mp_unreach unknown for afi %d" % afi)
+        print_msg.append("%smp_unreach unknown afi %d" % (indent, afi))
 
     # catch-all
     #
-    elif attr_type_code in BGP.ATTR_TYPE_STR:
-      print_msg.append(indent + BGP.ATTR_TYPE_STR[attr_type_code] + "\n")
+    elif attr_type in BGP.ATTR_TYPE_STR:
+      print_msg.append("%s%s\n" % (indent, BGP.ATTR_TYPE_STR[attr_type]))
 
     # adjust pointers
     #
@@ -565,12 +562,12 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
   # next section is nlri information, parse and add to print_msg
   #
   if verbose:
-    print_msg.append(indent + "NLRI portion of update at %d\n" % offset)
+    print_msg.append("%sNLRI portion of update at %d\n" % (indent, offset))
   nlri_text = ParseBgpNlri(update, offset, length, BGP.AF_IP, verbose)
   if nlri_text:
-    prepend_str = indent + "nlri "
-    sep = "\n" + prepend_str
-    print_msg.append(prepend_str + sep.join(nlri_text) + "\n")
+    prepend_str = "%snlri " % indent
+    sep = "\n%s" % prepend_str
+    print_msg.append("%s%s\n" % (prepend_str, sep.join(nlri_text)))
 
   # print the message
   #
@@ -686,9 +683,8 @@ def ParseBgpNlri(update, start, end, afi, verbose=0):
 
       # convert to presentation
       #
-      nlri_text.append(socket.inet_ntop(socket_afi, prefix) +
-                       "/" +
-                       str(prefix_len))
+      nlri_text.append("%s/%d" % (socket.inet_ntop(socket_afi, prefix),
+                                  prefix_len))
 
   except IndexError:
     nlri_text.append("parse error at %d" % offset2)
@@ -775,7 +771,7 @@ def main(argv):
     try:
       RECORD_SESSION = open(record_file, "wb")
     except Exception:
-      raise Exception("error opening % for write" % record_file)
+      raise Exception("error opening %s for write" % record_file)
   else:
     RECORD_SESSION = 0
 
@@ -793,10 +789,10 @@ def main(argv):
     #
     if port != 0:
       conn, addr = listener.accept()
-      print "Connection from", addr
+      print "Connection from %s port %d" % (addr[0], addr[1])
     else:
       conn = open(record_file, "rb", 0)
-      print "Reading from " + record_file
+      print "Reading from file %s" % record_file
 
     while 1:
       # read a header
