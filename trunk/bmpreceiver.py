@@ -41,135 +41,6 @@ RECORD_SESSION = 0
 DEBUG_FLAG = 0
 
 
-# function to collect a BMP header
-#
-def CollectBmpHeader(s, verbose=0):
-  """Collect a BMP header.
-
-  Args:
-    s: socket from which to read.
-    verbose: be chatty, or not.
-
-  Returns:
-    an int indicating the type of message that follows the header.
-  """
-
-  indent = INDENT_CHAR * INDENT_COUNT
-  print_msg = []
-
-  # read the fixed-length header from the socket
-  #
-  header = CollectBytes(s, BMP.HEADER_LEN)
-
-  # unpack and decide what to print
-  #
-  version, msg_type, peer_type, peer_flags = struct.unpack(">BBBB",
-                                                           header[0:4])
-  print_msg.append("BMP version %d type %s " % (version,
-                                                BMP.MSG_TYPE_STR[msg_type]))
-  if verbose:
-    print_msg.append(" peer_type %s" % BMP.PEER_TYPE_STR[peer_type])
-    print_msg.append(" peer_flags 0x%x\n" % peer_flags)
-  else:
-    print_msg.append("\n")
-  if (peer_flags & BMP.PEER_FLAG_IPV6) == BMP.PEER_FLAG_IPV6:
-    peer_address = socket.inet_ntop(socket.AF_INET6, header[12:28])
-  else:
-    peer_address = socket.inet_ntop(socket.AF_INET, header[24:28])
-  if verbose:
-    print_msg.append("%speer_address %s" % (indent, peer_address))
-    peer_as, time_sec = struct.unpack(">LxxxxL",
-                                      header[28:40])
-    print_msg.append(" as %d" % peer_as)
-    print_msg.append(" router_id %s\n" % socket.inet_ntoa(header[32:36]))
-    print_msg.append("%stime %s\n" % (indent, time.ctime(time_sec)))
-
-  # print the message
-  #
-  print "".join(print_msg),
-
-  # if we have a version mismatch, we're pretty much done here
-  #
-  assert (version == BMP.VERSION), "BMP version mismatch"
-
-  # return the message type so the caller can decide what to do next
-  #
-  return msg_type
-
-
-# function to collect a BMP peer down notification
-#
-def CollectBmpPeerDown(s, verbose=0):
-  """Collect a BMP Peer Down message.
-
-  Args:
-    s: socket from which to read.
-    verbose: be chatty, or not.
-
-  Returns:
-    nothing
-  """
-
-  indent = INDENT_CHAR * INDENT_COUNT
-
-  reason_code = CollectBytes(s, 1)
-  if reason_code[0] == 1:
-    print "%sLocal system closed session, notification sent" % indent
-    CollectBgpNotification(s, verbose)
-  elif reason_code[0] == 2:
-    print "%sLocal system closed session, no notification" % indent
-  elif reason_code[0] == 3:
-    print "%sRemote system closed session, notification sent" % indent
-    CollectBgpNotification(s, verbose)
-  elif reason_code[0] == 4:
-    print "%sRemote system closed session, no notification" % indent
-  else:
-    assert False, "unknown Peer Down reason code"
-
-
-# function to collect a BMP statistics report
-#
-def CollectBmpSrMsg(s, verbose=0):
-  """Collect a BMP Statistics Report message.
-
-  Args:
-    s: socket from which to read.
-    verbose: be chatty, or not.
-
-  Returns:
-    nothing
-  """
-
-  print_msg = []
-  indent = INDENT_CHAR * INDENT_COUNT
-
-  # find out many TLVs there are
-  #
-  stats_count_buf = CollectBytes(s, 4)
-  stats_count = struct.unpack(">L", stats_count_buf)[0]
-  print_msg.append("%s%d TLVs present\n" % (indent, stats_count))
-
-  # read all the TLVs
-  #
-  while stats_count > 0:
-    stat_type_len_buf = CollectBytes(s, 4)
-    stat_type, stat_len = struct.unpack(">HH", stat_type_len_buf)
-    stat_data_buf = CollectBytes(s, stat_len)
-    if stat_type in BMP.SR_TYPE_STR:
-      assert stat_len == 4
-      stat_val = struct.unpack(">L", stat_data_buf)[0]
-      if verbose:
-        print_msg.append("%s%s%d %s\n" % (indent,
-                                          indent,
-                                          stat_val,
-                                          BMP.SR_TYPE_STR[stat_type]))
-    stats_count -= 1
-
-  # print the message
-  #
-  print "".join(print_msg),
-
-
 # function to collect the header of a BGP PDU
 # RFC4271 section 4.1
 #
@@ -183,8 +54,6 @@ def CollectBgpHeader(s, verbose=0):
   Returns:
     an int indicating the length of the rest of the BGP message.
   """
-
-  global DEBUG_FLAG
 
   indent = INDENT_CHAR * INDENT_COUNT
 
@@ -374,36 +243,45 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
     elif attr_type == BGP.ATTR_TYPE_AS_PATH:
       print_msg.append("%s%s " % (indent, BGP.ATTR_TYPE_STR[attr_type]))
 
-      # make a local copy of offset
-      #
-      offset2 = offset
+      try:
 
-      # walk through the path segments; 
-      #
-      while offset2 < (offset + attr_len):
-        path_seg_type = update[offset2]
-        offset2 += 1
-        path_seg_len = update[offset2]
-        offset2 += 1
-        path_seg_val = []
-        for x in range(path_seg_len):
+        # make a local copy of offset
+        #
+        offset2 = offset
 
-          # RFC4893-style updates have 4-octet ASNs, otherwise 2-octet ASNs
-          #
-          if rfc4893_updates:
-            path_seg_val.append(str(struct.unpack_from(">L",
-                                                       update,
-                                                       offset2)[0]))
-            offset2 += 4
-          else:
-            path_seg_val.append(str(struct.unpack_from(">H",
-                                                       update,
-                                                       offset2)[0]))
-            offset2 += 2
+        # walk through the path segments; 
+        #
+        while offset2 < (offset + attr_len):
+          path_seg_type = update[offset2]
+          offset2 += 1
+          path_seg_len = update[offset2]
+          offset2 += 1
+          path_seg_val = []
+          for x in range(path_seg_len):
 
-        path_seg_str = " ".join(path_seg_val)
-        print_msg.append(BGP.AS_PATH_SEG_FORMAT[path_seg_type] % path_seg_str)
-        print_msg.append("\n")
+            # RFC4893-style updates have 4-octet ASNs, otherwise 2-octet ASNs
+            #
+            if rfc4893_updates:
+              path_seg_val.append(str(struct.unpack_from(">L",
+                                                         update,
+                                                         offset2)[0]))
+              offset2 += 4
+            else:
+              path_seg_val.append(str(struct.unpack_from(">H",
+                                                         update,
+                                                         offset2)[0]))
+              offset2 += 2
+
+          ps_str = " ".join(path_seg_val)
+          print_msg.append(BGP.AS_PATH_SEG_FORMAT[path_seg_type] % ps_str)
+          print_msg.append("\n")
+
+      except KeyError:
+        if not rfc4893_updates:
+          if verbose:
+            Warn(["CollectBgpUpdate setting --rfc4893_updates due to ",
+                  "parsing error"])
+          rfc4893_updates += 1
 
     # next hop
     #
@@ -574,6 +452,135 @@ def CollectBgpUpdate(s, rfc4893_updates=0, verbose=0):
   print("".join(print_msg)),
 
 
+# function to collect a BMP header
+#
+def CollectBmpHeader(s, verbose=0):
+  """Collect a BMP header.
+
+  Args:
+    s: socket from which to read.
+    verbose: be chatty, or not.
+
+  Returns:
+    an int indicating the type of message that follows the header.
+  """
+
+  indent = INDENT_CHAR * INDENT_COUNT
+  print_msg = []
+
+  # read the fixed-length header from the socket
+  #
+  header = CollectBytes(s, BMP.HEADER_LEN)
+
+  # unpack and decide what to print
+  #
+  version, msg_type, peer_type, peer_flags = struct.unpack(">BBBB",
+                                                           header[0:4])
+  print_msg.append("BMP version %d type %s " % (version,
+                                                BMP.MSG_TYPE_STR[msg_type]))
+  if verbose:
+    print_msg.append(" peer_type %s" % BMP.PEER_TYPE_STR[peer_type])
+    print_msg.append(" peer_flags 0x%x\n" % peer_flags)
+  else:
+    print_msg.append("\n")
+  if (peer_flags & BMP.PEER_FLAG_IPV6) == BMP.PEER_FLAG_IPV6:
+    peer_address = socket.inet_ntop(socket.AF_INET6, header[12:28])
+  else:
+    peer_address = socket.inet_ntop(socket.AF_INET, header[24:28])
+  if verbose:
+    print_msg.append("%speer_address %s" % (indent, peer_address))
+    peer_as, time_sec = struct.unpack(">LxxxxL",
+                                      header[28:40])
+    print_msg.append(" as %d" % peer_as)
+    print_msg.append(" router_id %s\n" % socket.inet_ntoa(header[32:36]))
+    print_msg.append("%stime %s\n" % (indent, time.ctime(time_sec)))
+
+  # print the message
+  #
+  print "".join(print_msg),
+
+  # if we have a version mismatch, we're pretty much done here
+  #
+  assert (version == BMP.VERSION), "BMP version mismatch"
+
+  # return the message type so the caller can decide what to do next
+  #
+  return msg_type
+
+
+# function to collect a BMP peer down notification
+#
+def CollectBmpPeerDown(s, verbose=0):
+  """Collect a BMP Peer Down message.
+
+  Args:
+    s: socket from which to read.
+    verbose: be chatty, or not.
+
+  Returns:
+    nothing
+  """
+
+  indent = INDENT_CHAR * INDENT_COUNT
+
+  reason_code = CollectBytes(s, 1)
+  if reason_code[0] == 1:
+    print "%sLocal system closed session, notification sent" % indent
+    CollectBgpNotification(s, verbose)
+  elif reason_code[0] == 2:
+    print "%sLocal system closed session, no notification" % indent
+  elif reason_code[0] == 3:
+    print "%sRemote system closed session, notification sent" % indent
+    CollectBgpNotification(s, verbose)
+  elif reason_code[0] == 4:
+    print "%sRemote system closed session, no notification" % indent
+  else:
+    assert False, "unknown Peer Down reason code"
+
+
+# function to collect a BMP statistics report
+#
+def CollectBmpSrMsg(s, verbose=0):
+  """Collect a BMP Statistics Report message.
+
+  Args:
+    s: socket from which to read.
+    verbose: be chatty, or not.
+
+  Returns:
+    nothing
+  """
+
+  print_msg = []
+  indent = INDENT_CHAR * INDENT_COUNT
+
+  # find out many TLVs there are
+  #
+  stats_count_buf = CollectBytes(s, 4)
+  stats_count = struct.unpack(">L", stats_count_buf)[0]
+  print_msg.append("%s%d TLVs present\n" % (indent, stats_count))
+
+  # read all the TLVs
+  #
+  while stats_count > 0:
+    stat_type_len_buf = CollectBytes(s, 4)
+    stat_type, stat_len = struct.unpack(">HH", stat_type_len_buf)
+    stat_data_buf = CollectBytes(s, stat_len)
+    if stat_type in BMP.SR_TYPE_STR:
+      assert stat_len == 4
+      stat_val = struct.unpack(">L", stat_data_buf)[0]
+      if verbose:
+        print_msg.append("%s%s%d %s\n" % (indent,
+                                          indent,
+                                          stat_val,
+                                          BMP.SR_TYPE_STR[stat_type]))
+    stats_count -= 1
+
+  # print the message
+  #
+  print "".join(print_msg),
+
+
 # function to collect bytes from a stream socket *or* a file
 #
 def CollectBytes(s, l):
@@ -586,8 +593,6 @@ def CollectBytes(s, l):
   Returns:
     a buffer containing the requested number of bytes
   """
-
-  global RECORD_SESSION
 
   # if it's a socket, do this
   #
@@ -639,8 +644,6 @@ def ParseBgpNlri(update, start, end, afi, verbose=0):
     a list of strings
   """
 
-  global DEBUG_FLAG
-
   nlri_text = []
   offset2 = start
 
@@ -661,7 +664,8 @@ def ParseBgpNlri(update, start, end, afi, verbose=0):
       #
       if (need_bytes > 4) and (afi == BGP.AF_IP):
         if verbose:
-          print "WARNING: overriding AFI due to bytes needed for prefix length"
+          Warn(["ParseBgpNlri overriding AFI due to bytes needed for ",
+                "prefix length"])
         afi = BGP.AF_IP6
 
       # get a buffer of correct size for address family
@@ -721,6 +725,21 @@ Options:
   -p port : if port > 0, port on which to listen for a BMP connection
           : if port = 0, read BMP messages from file specified in -f
 """
+
+
+# Warn
+#
+def Warn(message):
+  """Print a warning message to stderr.
+
+  Args:
+    message: a list of strings to write to stderr.
+
+  Returns:
+    nothing
+  """
+
+  sys.stderr.write("WARNING: %s\n" % "".join(message))
 
 
 # main
