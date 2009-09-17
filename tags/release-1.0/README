@@ -1,0 +1,34 @@
+BMP Reciever
+
+This is a Python implementation of the BMP protocol, as a receiver.
+
+Code:
+
+bmp-receiver.py	- the receiver code
+BGP.py		- constants and support functions for the BGP protocol
+BMP.py		- constants and support functions for the BMP protocol
+
+Documentation:
+
+COPYING.txt
+README.txt
+
+Relevant RFCs and I-Ds:
+
+draft-ietf-grow-bmp-01.txt
+draft-ietf-grow-bmp-02.txt
+rfc1771.txt
+rfc1863.txt
+rfc1997.txt
+rfc2042.txt
+rfc2858.txt
+rfc4271.txt
+rfc4893.txt
+
+Test files: these are test files suitable for feeding to
+bmp-receiver.py's "-f" switch to test that the receiver is working.
+
+testcase1.bin
+testcase2.bin
+testcase3.bin
+testcase4.bin
